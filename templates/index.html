@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuboMind - Solucionador Interactivo y Pensamiento Computacional</title>
+    <meta name="description" content="Plataforma educativa interactiva en 3D para resolver el cubo de Rubik aplicando principios algoritmicos y pensamiento computacional.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- Carga de Three.js para renderizado WebGL 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- Navegacion Principal -->
+    <header class="navbar">
+        <div class="brand">
+            <h1 class="brand-title" id="app-title">CuboMind</h1>
+            <span class="brand-badge">Pensamiento Computacional</span>
+        </div>
+        <div class="controls-header">
+            <!-- Selector de Algoritmo de Resolucion con Deteccion Automatica -->
+            <select id="method-select" style="background: rgba(15,22,36,0.9); color: var(--text-primary); border: 1px solid var(--accent-blue); padding: 0.65rem 0.85rem; border-radius: 8px; font-family: var(--font-heading); font-weight: 600; font-size: 0.85rem; cursor: pointer; outline: none;">
+                <option value="auto" selected>Auto-Detectar Algoritmo Optimo</option>
+                <option value="layers">Metodo por Capas (Descomposicion)</option>
+                <option value="reduction">Algoritmo de Reduccion (Centros + Aristas)</option>
+                <option value="kociemba">Algoritmo de Kociemba / Busqueda Optima (BFS)</option>
+            </select>
+
+            <button class="btn-secondary" id="btn-scramble">Mezclar Cubo</button>
+            <button class="btn-secondary" id="btn-scramble-solve">Mezclar y Auto-Armar</button>
+            <button class="btn-secondary" id="btn-reset">Restablecer</button>
+            <button class="btn-primary" id="btn-solve">Auto-Armado Explicado</button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal Grid -->
+    <main class="app-container">
+
+        <!-- Seccion Izquierda: Visor 3D, Previsualizacion 2D y Teclado -->
+        <section class="viewport-section">
+            
+            <!-- Lienzo Three.js 3D con Flechas Direccionales de Giro -->
+            <div class="canvas-card" id="canvas-card" style="position: relative;">
+                <div class="canvas-overlay">
+                    <button class="size-btn" data-size="2">2x2</button>
+                    <button class="size-btn active" data-size="3">3x3</button>
+                    <button class="size-btn" data-size="4">4x4</button>
+                    <button class="size-btn" data-size="5">5x5</button>
+                    <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 0.25rem;"></div>
+                    <button class="view-btn active" data-view="front" style="padding: 0.5rem 0.8rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--accent-blue); background: rgba(0,210,255,0.2); color: var(--accent-blue);">Frente Recto</button>
+                    <button class="view-btn" data-view="3d" style="padding: 0.5rem 0.8rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: rgba(15,22,36,0.85); color: var(--text-secondary);">Vista 3D</button>
+                </div>
+
+                <!-- Flechas Indicadoras Direccionales de Giro Alrededor del Cubo -->
+                <div class="directional-arrows-container">
+                    <button class="arrow-btn arrow-top" data-move="U" title="Girar Capa Superior (U)">&uarr; U</button>
+                    <button class="arrow-btn arrow-bottom" data-move="D" title="Girar Capa Inferior (D)">&darr; D</button>
+                    <button class="arrow-btn arrow-left" data-move="L" title="Girar Capa Izquierda (L)">&larr; L</button>
+                    <button class="arrow-btn arrow-right" data-move="R" title="Girar Capa Derecha (R)">R &rarr;</button>
+                </div>
+
+                <div id="cube-canvas"></div>
+            </div>
+
+            <!-- Panel de Previsualizacion 2D de las 6 Caras -->
+            <div class="face-previews-panel">
+                <div class="panel-title">
+                    <span>Previsualizacion 2D de las 6 Caras</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">Estado actualizado tras cada movimiento</span>
+                </div>
+                <div class="faces-grid" id="faces-grid">
+                    <!-- Generado dinamicamente en tiempo real por main.js -->
+                </div>
+            </div>
+
+            <!-- Panel de Controles de Movimiento (Notacion Estandar) -->
+            <div class="moves-panel">
+                <div class="panel-title">
+                    <span>Controles de Giro Notacion Estandar</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">Clic en cara, flechas o teclado</span>
+                </div>
+
+                <div class="moves-grid">
+                    <button class="btn-move" data-move="U" id="btn-move-U">
+                        <span>U</span>
+                        <span class="move-subtext">Arriba Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="U'" id="btn-move-Up">
+                        <span>U'</span>
+                        <span class="move-subtext">Arriba Anti</span>
+                    </button>
+                    <button class="btn-move" data-move="D" id="btn-move-D">
+                        <span>D</span>
+                        <span class="move-subtext">Abajo Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="D'" id="btn-move-Dp">
+                        <span>D'</span>
+                        <span class="move-subtext">Abajo Anti</span>
+                    </button>
+                    <button class="btn-move" data-move="L" id="btn-move-L">
+                        <span>L</span>
+                        <span class="move-subtext">Izquierda Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="L'" id="btn-move-Lp">
+                        <span>L'</span>
+                        <span class="move-subtext">Izquierda Anti</span>
+                    </button>
+                    <button class="btn-move" data-move="R" id="btn-move-R">
+                        <span>R</span>
+                        <span class="move-subtext">Derecha Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="R'" id="btn-move-Rp">
+                        <span>R'</span>
+                        <span class="move-subtext">Derecha Anti</span>
+                    </button>
+                    <button class="btn-move" data-move="F" id="btn-move-F">
+                        <span>F</span>
+                        <span class="move-subtext">Frente Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="F'" id="btn-move-Fp">
+                        <span>F'</span>
+                        <span class="move-subtext">Frente Anti</span>
+                    </button>
+                    <button class="btn-move" data-move="B" id="btn-move-B">
+                        <span>B</span>
+                        <span class="move-subtext">Atras Horario</span>
+                    </button>
+                    <button class="btn-move" data-move="B'" id="btn-move-Bp">
+                        <span>B'</span>
+                        <span class="move-subtext">Atras Anti</span>
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Seccion Derecha: Panel de Razonamiento Algoritmico -->
+        <aside class="explanation-sidebar">
+            
+            <div class="pedagogy-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="pillar-badge" id="pillar-badge">Pensamiento Computacional</span>
+                    <span id="method-tag" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-blue);">Auto-Deteccion Activa</span>
+                </div>
+                
+                <h2 class="phase-heading" id="phase-title">Cubo en Estado Identidad</h2>
+
+                <!-- Bloque Explicativo del Por que se realiza el movimiento -->
+                <div class="explanation-block" style="border-left-color: var(--accent-blue);">
+                    <div class="explanation-label">Razonamiento Algoritmico del Movimiento</div>
+                    <p class="explanation-text" id="explanation-text">
+                        El cubo se encuentra en su posicion inicial resuelta. Haz clic en Mezclar para generar un nuevo estado o en Auto-Armado Explicado para ver la resolucion paso a paso movimiento a movimiento.
+                    </p>
+                </div>
+
+                <!-- Bloque de Piezas Protegidas -->
+                <div class="invariant-block">
+                    <div class="invariant-label">Piezas Protegidas (Invariante)</div>
+                    <p class="explanation-text" id="invariant-text">
+                        Todas las piezas estan en su posicion correcta.
+                    </p>
+                </div>
+
+                <!-- Barra de Progreso del Auto-Armado -->
+                <div style="width: 100%; background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 0.25rem;">
+                    <div id="progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-green)); transition: width 0.3s ease;"></div>
+                </div>
+
+                <!-- Reproductor de Resolucion Paso a Paso -->
+                <div class="playback-controls">
+                    <button class="playback-btn" id="btn-prev" title="Paso Anterior">&lt;</button>
+                    <button class="playback-btn" id="btn-play" style="width: auto; padding: 0 1rem; border-radius: 20px;">Play</button>
+                    <button class="playback-btn" id="btn-next" title="Paso Siguiente">&gt;</button>
+                    <span class="step-indicator" id="step-indicator">Paso 0 / 0</span>
+                </div>
+
+                <!-- Selector de Velocidad -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Velocidad Auto-Armado:</span>
+                    <div style="display: flex; gap: 0.3rem;">
+                        <button class="speed-btn" data-speed="1800" style="padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer;">Lento</button>
+                        <button class="speed-btn active" data-speed="1200" style="padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; background: rgba(0,210,255,0.2); color: var(--accent-blue); border: 1px solid var(--accent-blue); cursor: pointer;">Normal</button>
+                        <button class="speed-btn" data-speed="600" style="padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer;">Rapido</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>CuboMind &copy; 2026 - Plataforma Educativa de Algoritmos y Ciencias de la Computacion</p>
+    </footer>
+
+    <!-- Carga de Scripts del Cliente -->
+    <script src="{{ url_for('static', filename='js/cube3d.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
