@@ -18,6 +18,7 @@ ENV/
 .idea/
 *.swp
 *.swo
+.agents
 
 # Archivos del sistema operativo
 .DS_Store
