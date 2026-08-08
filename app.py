@@ -4,6 +4,7 @@ from logic.reasoning_engine import ReasoningEngine
 from logic.layer_solver import LayerSolver
 from logic.reduction_solver import ReductionSolver
 from logic.kociemba_solver import KociembaSolver
+from logic.target_matrix_solver import TargetMatrixSolver
 
 app = Flask(__name__)
 
@@ -14,7 +15,7 @@ move_history = []
 def detect_best_solver(cube, history):
     """
     Detecta automaticamente el algoritmo de resolucion mas idoneo
-    segun las caracteristicas del cubo (tamano NxN y profundidad del estado).
+    segun las caracteristicas del cubo (tamano NxN y evaluacion del estado actual).
     """
     if cube.size == 2:
         return 'reduction', 'Metodo 2x2 (Ortega / Permutacion Directa de Esquinas)'
@@ -23,7 +24,7 @@ def detect_best_solver(cube, history):
     elif cube.size == 3 and len(history) <= 12:
         return 'kociemba', 'Algoritmo de Kociemba / Busqueda Optima (BFS)'
     else:
-        return 'layers', 'Metodo por Capas (Descomposicion Algoritmica)'
+        return 'target_matrix', 'Evaluacion de Matriz Meta (Target Matrix)'
 
 @app.route('/')
 def index():
@@ -90,7 +91,7 @@ def apply_move():
     explanation = ReasoningEngine.explain_move(move, phase_key='cross')
     explanation['method_name'] = method_name
     explanation['method_key'] = method_key
-    explanation['why_text'] = f"¿Por que este movimiento?: Al ejecutar {move} ({explanation['action']}), el sistema detecto que este giro se alinea con el {method_name} para {explanation['effect']}"
+    explanation['why_text'] = f"¿Por que este movimiento?: Al ejecutar {move} ({explanation['action']}), el sistema detecto que este giro aproxima el estado a la Matriz Meta ({method_name}) para {explanation['effect']}"
 
     return jsonify({
         'status': 'success',
@@ -121,7 +122,6 @@ def solve_cube():
     data = request.get_json() or {}
     requested_method = data.get('method', 'auto').lower()
 
-    # Si el cubo ya esta resuelto, no generar movimientos innecesarios
     if current_cube.is_solved():
         return jsonify({
             'solved': True,
@@ -140,6 +140,8 @@ def solve_cube():
         solver = ReductionSolver(current_cube, move_history=move_history)
     elif method == 'kociemba':
         solver = KociembaSolver(current_cube, move_history=move_history)
+    elif method == 'target_matrix':
+        solver = TargetMatrixSolver(current_cube)
     else:
         solver = LayerSolver(current_cube, move_history=move_history)
 
@@ -169,6 +171,8 @@ def scramble_and_solve():
         solver = ReductionSolver(current_cube, move_history=move_history)
     elif method == 'kociemba':
         solver = KociembaSolver(current_cube, move_history=move_history)
+    elif method == 'target_matrix':
+        solver = TargetMatrixSolver(current_cube)
     else:
         solver = LayerSolver(current_cube, move_history=move_history)
 
